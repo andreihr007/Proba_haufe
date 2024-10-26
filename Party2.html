@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planificare Petrecere</title>
+
+  <style>
+    /* Stiluri CSS */
+    body {
+      background: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .menu,
+    .guest-list,
+    .guest-add {
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      margin: 20px;
+      width: 200px;
+      text-align: left;
+    }
+
+    .remove-button,
+    .move-button,
+    .back-button,
+    .deduct-button,
+    .reset-button {
+      margin-left: 10px;
+      background-color: red;
+      color: white;
+      border: none;
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+
+    .move-button {
+      background-color: blue;
+    }
+
+    .back-button {
+      background-color: orange;
+    }
+
+    .deduct-button {
+      background-color: green;
+    }
+
+    .reset-button {
+      background-color: purple;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Planificare Petrecere</h1>
+
+  <div class="checkbox-group">
+    <div class="guest-container">
+      <div class="guest-list">
+        <h2>Invitați:</h2>
+        <div id="dynamic-guest-list"></div>
+      </div>
+
+      <div class="guest-add">
+        <h2>Adaugă Invitat:</h2>
+        <input type="text" id="guest-input" placeholder="Introdu nume invitat">
+        <button id="add-guest">Adaugă</button>
+      </div>
+    </div>
+
+    <div class="menu" id="food-list">
+      <h2>Mâncare:</h2>
+    </div>
+
+    <div class="menu" id="drink-list">
+      <h2>Suc:</h2>
+    </div>
+
+    <div class="menu" id="music-list">
+      <h2>Muzică:</h2>
+    </div>
+  </div>
+
+  <label for="data">Alege o dată:</label>
+  <input type="date" id="data">
+
+
+  <label for="time">Alege ora:</label>
+  <input type="time" id="time">
+
+  <label for="location">Locație:</label>
+  <input type="text" id="location" placeholder="Introduceți locația">
+
+  <button id="finalizeaza">Finalizează</button>
+
+
+
+
+  <div id="budget-section">
+    <h2>Buget Total: <span id="total-budget">0</span> RON</h2>
+    <h2>Buget Rămas: <span id="budget-remaining">0</span> RON</h2>
+    <input type="number" id="deduct-amount" placeholder="Sumă de scăzut">
+    <button id="deduct-button" class="deduct-button">Scade</button>
+    <button id="reset-button" class="reset-button">Reset</button>
+  </div>
+
+  <script>
+    let budgetPerGuest = 10; // Set budget per guest
+    let totalFoodBudget = 0; // Budget for food
+    let totalDrinkBudget = 0; // Budget for drinks
+    let totalMusicBudget = 0; // Budget for music
+    let totalBudget = 0; // Total budget
+    let remainingBudget = 0; // Remaining budget
+
+    function updateBudget() {
+      const totalGuests = document.querySelectorAll('.guest-name').length;
+      const guestsBudget = totalGuests * budgetPerGuest;
+
+      // Calculate the total budget based on items in food, drink, and music categories
+      totalFoodBudget = document.querySelectorAll('#food-list label').length * budgetPerGuest;
+      totalDrinkBudget = document.querySelectorAll('#drink-list label').length * budgetPerGuest;
+      totalMusicBudget = document.querySelectorAll('#music-list label').length * budgetPerGuest;
+
+      totalBudget = guestsBudget + totalFoodBudget + totalDrinkBudget + totalMusicBudget;
+
+      // Update remaining budget
+      remainingBudget = totalBudget;
+
+      // Display the total budget and remaining budget
+      document.getElementById('total-budget').innerText = totalBudget;
+      document.getElementById('budget-remaining').innerText = remainingBudget; // Initially set remaining budget to total
+      localStorage.setItem('remainingBudget', remainingBudget); // Save the remaining budget
+    }
+
+    function loadSelections() {
+      const savedRemainingBudget = localStorage.getItem('remainingBudget');
+      const selectedGuests = JSON.parse(localStorage.getItem('selectedGuests')) || [];
+      document.getElementById('time').value = localStorage.getItem('selectedTime') || '';
+      document.getElementById('data').value = localStorage.getItem('selectedDate') || '';
+      const foodList = JSON.parse(localStorage.getItem('foodList')) || [];
+      const drinkList = JSON.parse(localStorage.getItem('drinkList')) || [];
+      const musicList = JSON.parse(localStorage.getItem('musicList')) || [];
+      const selectedDate = localStorage.getItem('selectedDate') || '';
+      const selectedLocation = localStorage.getItem('selectedLocation') || '';
+
+      selectedGuests.forEach(guest => addGuestToList(guest, true));
+      foodList.forEach(guest => addGuestToCategoryList('food-list', guest));
+      drinkList.forEach(guest => addGuestToCategoryList('drink-list', guest));
+      musicList.forEach(guest => addGuestToCategoryList('music-list', guest));
+
+      document.getElementById('data').value = selectedDate;
+      document.getElementById('location').value = selectedLocation;
+      // Load the remaining budget from localStorage if available
+
+      remainingBudget = savedRemainingBudget ? parseFloat(savedRemainingBudget) : 0;
+      document.getElementById('budget-remaining').innerText = remainingBudget;
+
+      updateBudget(); // Update budget after loading guests and categories
+    }
+
+    function saveSelections() {
+
+      const selectedGuests = Array.from(document.querySelectorAll('.guest-name')).map(guest => guest.innerText);
+      const foodList = Array.from(document.getElementById('food-list').querySelectorAll('label')).map(label =>
+        label.innerText.replace("Înapoi", "").trim()
+      );
+      const drinkList = Array.from(document.getElementById('drink-list').querySelectorAll('label')).map(label =>
+        label.innerText.replace("Înapoi", "").trim()
+      );
+      const musicList = Array.from(document.getElementById('music-list').querySelectorAll('label')).map(label =>
+        label.innerText.replace("Înapoi", "").trim()
+      );
+
+      const selectedDate = document.getElementById('data').value;
+      const selectedTime = document.getElementById('time').value; // Salvează ora
+      const selectedLocation = document.getElementById('location').value;
+      localStorage.setItem('selectedGuests', JSON.stringify(selectedGuests));
+      localStorage.setItem('foodList', JSON.stringify(foodList));
+      localStorage.setItem('drinkList', JSON.stringify(drinkList));
+      localStorage.setItem('musicList', JSON.stringify(musicList));
+      localStorage.setItem('selectedDate', selectedDate);
+      localStorage.setItem('selectedTime', selectedTime); // Salvează ora
+      localStorage.setItem('selectedLocation', selectedLocation);
+    }
+
+    function addGuestToList(guest, isLoaded = false) {
+      const guestList = document.getElementById('dynamic-guest-list');
+      if (Array.from(guestList.querySelectorAll('.guest-name')).map(div => div.innerText).includes(guest)) {
+        alert("Invitatul există deja în listă!");
+        return;
+      }
+
+      const guestDiv = document.createElement('div');
+      guestDiv.className = 'guest-item';
+
+      const guestNameDiv = document.createElement('span');
+      guestNameDiv.className = 'guest-name';
+      guestNameDiv.innerText = guest;
+
+      const removeButton = document.createElement('button');
+      removeButton.className = 'remove-button';
+      removeButton.innerText = 'Elimină';
+      removeButton.onclick = () => {
+        guestList.removeChild(guestDiv);
+        saveSelections();
+        updateBudget(); // Update budget when a guest is removed
+      };
+
+      const moveButton = document.createElement('button');
+      moveButton.className = 'move-button';
+      moveButton.innerText = 'Atribuie';
+      moveButton.onclick = () => {
+        moveGuestToCategory(guest);
+        guestList.removeChild(guestDiv);
+        saveSelections();
+        updateBudget(); // Update budget when a guest is moved
+      };
+
+      guestDiv.appendChild(guestNameDiv);
+      guestDiv.appendChild(removeButton);
+      guestDiv.appendChild(moveButton);
+
+      guestList.appendChild(guestDiv);
+      if (!isLoaded) {
+        saveSelections();
+        updateBudget(); // Update budget when a guest is added
+      }
+    }
+
+    function addGuestToCategoryList(categoryId, guest) {
+      const categoryList = document.getElementById(categoryId);
+      const label = document.createElement('label');
+
+      const guestNameSpan = document.createElement('span');
+      guestNameSpan.innerText = guest;
+
+      const backButton = document.createElement('button');
+      backButton.innerText = 'Înapoi';
+      backButton.className = 'back-button';
+      backButton.onclick = () => {
+        const guestList = document.getElementById('dynamic-guest-list');
+        addGuestToList(guest, true);
+        categoryList.removeChild(label);
+        saveSelections();
+        updateBudget(); // Update budget when a guest is moved back
+      };
+
+      label.appendChild(guestNameSpan);
+      label.appendChild(backButton);
+      categoryList.appendChild(label);
+
+      const lineBreak = document.createElement('br');
+      categoryList.appendChild(lineBreak);
+    }
+
+    function moveGuestToCategory(guest) {
+      const category = prompt("Introduceți categoria (Mâncare, Suc, Muzică) în care doriți să mutați invitatul:");
+      let categoryId;
+
+      if (category.toLowerCase() === 'mâncare') {
+        categoryId = 'food-list';
+      } else if (category.toLowerCase() === 'suc') {
+        categoryId = 'drink-list';
+      } else if (category.toLowerCase() === 'muzică') {
+        categoryId = 'music-list';
+      } else {
+        alert("Categorie invalidă!");
+        return;
+      }
+
+      addGuestToCategoryList(categoryId, guest);
+      saveSelections();
+    }
+
+    document.getElementById('add-guest').onclick = function () {
+      const guestInput = document.getElementById('guest-input');
+      const guestName = guestInput.value.trim();
+
+      if (guestName) {
+        addGuestToList(guestName);
+        guestInput.value = '';
+      } else {
+        alert("Te rog introdu un nume pentru invitat!");
+      }
+    };
+
+    document.getElementById('deduct-button').onclick = function () {
+      const deductAmount = parseFloat(document.getElementById('deduct-amount').value);
+      if (!isNaN(deductAmount) && deductAmount > 0) {
+        if (deductAmount > remainingBudget) {
+          alert("Sumă prea mare pentru a scădea din bugetul rămas!");
+        } else {
+          remainingBudget -= deductAmount;
+          document.getElementById('budget-remaining').innerText = remainingBudget;
+          localStorage.setItem('remainingBudget', remainingBudget); // Save updated remaining budget
+          document.getElementById('deduct-amount').value = ''; // Clear input field
+        }
+      } else {
+        alert("Te rog introdu o sumă validă!");
+      }
+    };
+
+    document.getElementById('reset-button').onclick = function () {
+      remainingBudget = totalBudget; // Reset to total budget
+      document.getElementById('budget-remaining').innerText = remainingBudget;
+      localStorage.setItem('remainingBudget', remainingBudget); // Save reset remaining budget
+      document.getElementById('deduct-amount').value = ''; // Clear input field
+    };
+
+    window.onload = function () {
+      loadSelections();
+      document.getElementById('finalizeaza').onclick = saveSelections;
+      updateBudget(); // Initialize budget on page load
+    };
+  </script>
+</body>
+
+</html>
